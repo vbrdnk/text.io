@@ -10,11 +10,20 @@ import (
 	"text.io/internal/models"
 )
 
-func getItemByID(w http.ResponseWriter, r *http.Request) {
+type Handler struct {
+	repo database.ItemRepository
+}
+
+func NewHandler(repo database.ItemRepository) *Handler {
+	return &Handler{
+		repo: repo,
+	}
+}
+
+func (h *Handler) GetItem(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
-	var item models.Item
-	err := database.DB.QueryRow("SELECT id, name, created_at FROM items WHERE id = $1", id).Scan(&item.ID, &item.Name, &item.CreatedAt)
+	item, err := h.repo.GetItem(id)
 	if err != nil {
 		http.Error(w, "Item not found", http.StatusNotFound)
 		return
@@ -24,32 +33,18 @@ func getItemByID(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(item)
 }
 
-func listItems(w http.ResponseWriter, r *http.Request) {
-	rows, err := database.DB.Query("SELECT id, name, created_at FROM items")
+func (h *Handler) ListItems(w http.ResponseWriter, r *http.Request) {
+	items, err := h.repo.ListItems()
 	if err != nil {
 		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
-	}
-
-	defer rows.Close()
-
-	// Parse rows into items
-	var items []models.Item
-	for rows.Next() {
-		var item models.Item
-		if err := rows.Scan(&item.ID, &item.Name, &item.CreatedAt); err != nil {
-			http.Error(w, "Error reading data", http.StatusInternalServerError)
-			return
-		}
-
-		items = append(items, item)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(items)
 }
 
-func createItem(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) CreateItem(w http.ResponseWriter, r *http.Request) {
 	var item models.Item
 	if err := json.NewDecoder(r.Body).Decode(&item); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -62,7 +57,7 @@ func createItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := database.DB.Exec("INSERT INTO items (id, name) VALUES ($1, $2)", item.ID, item.Name)
+	err := h.repo.CreateItem(item)
 	if err != nil {
 		http.Error(w, "Error saving the item", http.StatusInternalServerError)
 		return

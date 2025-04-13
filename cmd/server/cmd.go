@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"fmt"
@@ -12,7 +12,7 @@ import (
 	"text.io/internal/database"
 )
 
-func main() {
+func Run() {
 	config := configs.LoadConfig()
 
 	// Initialize the database
@@ -22,8 +22,11 @@ func main() {
 
 	defer database.CloseDB()
 
+	repo := database.NewPostgresItemRepository(database.DB)
+
+	server := api.NewServer(config, repo)
 	go func() {
-		if err := api.RunServer(config); err != nil {
+		if err := server.Start(); err != nil {
 			log.Fatalf("Server error: %s\n", err)
 		}
 	}()

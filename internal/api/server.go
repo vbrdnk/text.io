@@ -8,34 +8,45 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"text.io/configs"
+	"text.io/internal/database"
 )
 
-func helloHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Hello, World!")
+type Server struct {
+	router chi.Router
+	config configs.Config
 }
 
-func RunServer(config configs.Config) error {
-	// Create a new chi router
-	r := chi.NewRouter()
+func NewServer(config configs.Config, repo database.ItemRepository) *Server {
+	server := &Server{
+		router: chi.NewRouter(),
+		config: config,
+	}
+
+	handler := NewHandler(repo)
 
 	// Add built-in middleware
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
-	r.Use(middleware.Timeout(time.Duration(config.Timeout) * time.Second))
+	server.router.Use(middleware.Logger)
+	server.router.Use(middleware.Recoverer)
+	server.router.Use(middleware.Timeout(time.Duration(config.Timeout) * time.Second))
 
-	r.Get("/hello", helloHandler)
-
-	// Define the routes
-	r.Route("/api", func(r chi.Router) {
-		r.Get("/items", listItems)
-		r.Post("/items", createItem)
-
-		// Path parameter example
-		r.Get("/items/{id}", getItemByID)
+	server.router.Get("/hello", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "Hello, World!")
 	})
 
-	// Start the server on port 8080
-	fmt.Printf("Server starting on port %d...\n", config.Port)
+	// Define the routes
+	server.router.Route("/api", func(r chi.Router) {
+		r.Get("/items", handler.ListItems)
+		r.Post("/items", handler.CreateItem)
 
-	return http.ListenAndServe(fmt.Sprintf(":%d", config.Port), r)
+		// Path parameter example
+		r.Get("/items/{id}", handler.GetItem)
+	})
+
+	return server
+}
+
+func (s *Server) Start() error {
+	addr := fmt.Sprintf(":%d", s.config.Port)
+	fmt.Printf("Server starting on port %s...\n", addr)
+	return http.ListenAndServe(addr, s.router)
 }
