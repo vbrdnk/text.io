@@ -8,7 +8,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"text.io/configs"
+	"text.io/internal/api/items"
 	"text.io/internal/database"
+	"text.io/internal/service"
 )
 
 type Server struct {
@@ -22,24 +24,21 @@ func NewServer(config configs.Config, repo database.ItemRepository) *Server {
 		config: config,
 	}
 
-	handler := NewHandler(repo)
+	itemsService := service.NewService(repo)
+	itemsHandler := items.NewHandler(itemsService)
 
 	// Add built-in middleware
 	server.router.Use(middleware.Logger)
 	server.router.Use(middleware.Recoverer)
 	server.router.Use(middleware.Timeout(time.Duration(config.Timeout) * time.Second))
 
-	server.router.Get("/hello", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "Hello, World!")
-	})
-
 	// Define the routes
 	server.router.Route("/api", func(r chi.Router) {
-		r.Get("/items", handler.ListItems)
-		r.Post("/items", handler.CreateItem)
-
-		// Path parameter example
-		r.Get("/items/{id}", handler.GetItem)
+		r.Route("/items", func(r chi.Router) {
+			r.Get("/", itemsHandler.ListItems)
+			r.Post("/", itemsHandler.CreateItem)
+			r.Get("/{id}", itemsHandler.GetItem)
+		})
 	})
 
 	return server
