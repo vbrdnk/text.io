@@ -41,9 +41,9 @@ func InitDB(config configs.Config) error {
 
 func createTable() error {
 	_, err := DB.Exec(`
-		CREATE TABLE IF NOT EXISTS items (
-			id TEXT PRIMARY KEY,
-			name TEXT NOT NULL,
+		CREATE TABLE IF NOT EXISTS links (
+			fingerprint UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			url TEXT NOT NULL,
 			created_at TIMESTAMP NOT NULL DEFAULT NOW()
 		)
 	`)

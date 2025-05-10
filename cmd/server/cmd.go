@@ -10,6 +10,7 @@ import (
 	"text.io/configs"
 	"text.io/internal/api"
 	"text.io/internal/database"
+	"text.io/internal/infrastructure/repositories"
 )
 
 func Run() {
@@ -22,7 +23,7 @@ func Run() {
 
 	defer database.CloseDB()
 
-	repo := database.NewPostgresItemRepository(database.DB)
+	repo := repositories.NewPostgresLinkRepository(database.DB)
 
 	server := api.NewServer(config, repo)
 	go func() {

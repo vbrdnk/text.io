@@ -23,7 +23,7 @@ func setupTestDB(t *testing.T) {
 	}
 
 	// Clean up existing test data
-	_, err := DB.Exec("DELETE FROM items")
+	_, err := DB.Exec("DELETE FROM links")
 	if err != nil {
 		t.Fatalf("Failed to clean up test database: %v", err)
 	}
@@ -38,7 +38,7 @@ func TestCreateAndGetItem(t *testing.T) {
 	itemName := "Test Item"
 
 	// Insert test item
-	_, err := DB.Exec("INSERT INTO items (id, name) VALUES ($1, $2)",
+	_, err := DB.Exec("INSERT INTO links (id, name) VALUES ($1, $2)",
 		itemID, itemName)
 	if err != nil {
 		t.Fatalf("Failed to insert test item: %v", err)
@@ -46,7 +46,7 @@ func TestCreateAndGetItem(t *testing.T) {
 
 	// Retrieve the item
 	var name string
-	err = DB.QueryRow("SELECT name FROM items WHERE id = $1", itemID).
+	err = DB.QueryRow("SELECT name FROM links WHERE id = $1", itemID).
 		Scan(&name)
 	if err != nil {
 		t.Fatalf("Failed to retrieve test item: %v", err)

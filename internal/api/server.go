@@ -8,9 +8,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"text.io/configs"
-	"text.io/internal/api/items"
-	"text.io/internal/database"
-	"text.io/internal/service"
+	"text.io/internal/api/application/handlers"
+	"text.io/internal/api/application/repositories"
+	"text.io/internal/infrastructure/services"
 )
 
 type Server struct {
@@ -18,14 +18,14 @@ type Server struct {
 	config configs.Config
 }
 
-func NewServer(config configs.Config, repo database.ItemRepository) *Server {
+func NewServer(config configs.Config, repo repositories.LinkRepository) *Server {
 	server := &Server{
 		router: chi.NewRouter(),
 		config: config,
 	}
 
-	itemsService := service.NewService(repo)
-	itemsHandler := items.NewHandler(itemsService)
+	linksService := services.NewService(repo)
+	linksHandler := handlers.NewHandler(linksService)
 
 	// Add built-in middleware
 	server.router.Use(middleware.Logger)
@@ -34,10 +34,10 @@ func NewServer(config configs.Config, repo database.ItemRepository) *Server {
 
 	// Define the routes
 	server.router.Route("/api", func(r chi.Router) {
-		r.Route("/items", func(r chi.Router) {
-			r.Get("/", itemsHandler.ListItems)
-			r.Post("/", itemsHandler.CreateItem)
-			r.Get("/{id}", itemsHandler.GetItem)
+		r.Route("/links", func(r chi.Router) {
+			r.Get("/", linksHandler.ListLinks)
+			r.Post("/", linksHandler.CreateLink)
+			r.Get("/{fingerprint}", linksHandler.GetLink)
 		})
 	})
 
