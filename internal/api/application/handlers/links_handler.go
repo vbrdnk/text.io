@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	entity_errors "text.io/internal/entities/errors"
@@ -15,7 +14,7 @@ type LinksHandler struct {
 	service *services.LinksService
 }
 
-func NewHandler(service *services.LinksService) *LinksHandler {
+func NewLinksHandler(service *services.LinksService) *LinksHandler {
 	return &LinksHandler{
 		service: service,
 	}
@@ -46,7 +45,7 @@ func (h *LinksHandler) ListLinks(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *LinksHandler) CreateLink(w http.ResponseWriter, r *http.Request) {
-	var link models.Link
+	var link models.CreateLink
 	if err := json.NewDecoder(r.Body).Decode(&link); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
@@ -66,8 +65,6 @@ func (h *LinksHandler) CreateLink(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-
-	link.CreatedAt = time.Now()
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)

@@ -18,14 +18,14 @@ func NewPostgresLinkRepository(db *sql.DB) *LinkRepository {
 
 func (r *LinkRepository) GetLink(fingerprint string) (models.Link, error) {
 	var link models.Link
-	err := r.db.QueryRow("SELECT fingerprint, url FROM links WHERE fingerprint = $1", fingerprint).
-		Scan(&link.Fingerprint, &link.Url)
+	err := r.db.QueryRow("SELECT fingerprint FROM links WHERE fingerprint = $1", fingerprint).
+		Scan(&link.Fingerprint)
 
 	return link, err
 }
 
-func (r *LinkRepository) CreateLink(link models.Link) error {
-	_, err := r.db.Exec("INSERT INTO links (url) VALUES ($1)", link.Url)
+func (r *LinkRepository) CreateLink(shortUrl string, link models.CreateLink) error {
+	_, err := r.db.Exec("INSERT INTO links (fingerprint, url) VALUES ($1, $2)", shortUrl, link.Url)
 	return err
 }
 

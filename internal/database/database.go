@@ -40,10 +40,34 @@ func InitDB(config configs.Config) error {
 }
 
 func createTable() error {
+	// DB.Exec(`
+	// 	DROP TABLE links
+	// `)
+	//
+	// DB.Exec(`
+	// 	DROP TABLE collections
+	// `)
+
 	_, err := DB.Exec(`
 		CREATE TABLE IF NOT EXISTS links (
-			fingerprint UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			fingerprint TEXT PRIMARY KEY UNIQUE,
+			label TEXT,
 			url TEXT NOT NULL,
+			created_by TEXT,
+			created_at TIMESTAMP NOT NULL DEFAULT NOW()
+		)
+	`)
+	if err != nil {
+		return err
+	}
+
+	_, err = DB.Exec(`
+		CREATE TABLE IF NOT EXISTS collections (
+			fingerprint TEXT PRIMARY KEY UNIQUE,
+			title TEXT NOT NULL,
+			description TEXT,
+			published BOOLEAN DEFAULT FALSE,
+			created_by TEXT,
 			created_at TIMESTAMP NOT NULL DEFAULT NOW()
 		)
 	`)

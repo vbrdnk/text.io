@@ -18,14 +18,17 @@ type Server struct {
 	config configs.Config
 }
 
-func NewServer(config configs.Config, repo repositories.LinkRepository) *Server {
+func NewServer(config configs.Config, linksRepo repositories.LinkRepository, collectionsRepo repositories.CollectionsRepository) *Server {
 	server := &Server{
 		router: chi.NewRouter(),
 		config: config,
 	}
 
-	linksService := services.NewService(repo)
-	linksHandler := handlers.NewHandler(linksService)
+	linksService := services.NewLinksService(linksRepo)
+	linksHandler := handlers.NewLinksHandler(linksService)
+
+	collectionsService := services.NewCollectionsService(collectionsRepo)
+	collectionsHandler := handlers.NewCollectionsHandler(collectionsService)
 
 	// Add built-in middleware
 	server.router.Use(middleware.Logger)
@@ -34,10 +37,18 @@ func NewServer(config configs.Config, repo repositories.LinkRepository) *Server 
 
 	// Define the routes
 	server.router.Route("/api", func(r chi.Router) {
+		// Links routes
 		r.Route("/links", func(r chi.Router) {
 			r.Get("/", linksHandler.ListLinks)
 			r.Post("/", linksHandler.CreateLink)
 			r.Get("/{fingerprint}", linksHandler.GetLink)
+		})
+
+		// Collections routes
+		r.Route("/collections", func(r chi.Router) {
+			r.Get("/", collectionsHandler.ListCollections)
+			r.Post("/", collectionsHandler.CreateCollection)
+			r.Get("/{fingerprint}", collectionsHandler.GetCollection)
 		})
 	})
 

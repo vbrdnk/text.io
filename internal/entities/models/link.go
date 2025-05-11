@@ -2,6 +2,11 @@ package models
 
 import "time"
 
+type CreateLink struct {
+	Label string `json:"label"`
+	Url   string `json:"url"`
+}
+
 type Link struct {
 	Fingerprint string    `json:"fingerprint"`
 	Label       string    `json:"label"`

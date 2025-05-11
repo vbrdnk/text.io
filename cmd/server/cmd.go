@@ -23,9 +23,10 @@ func Run() {
 
 	defer database.CloseDB()
 
-	repo := repositories.NewPostgresLinkRepository(database.DB)
+	linksRepo := repositories.NewPostgresLinkRepository(database.DB)
+	collectionsRepo := repositories.NewPostgresCollectionRepository(database.DB)
 
-	server := api.NewServer(config, repo)
+	server := api.NewServer(config, linksRepo, collectionsRepo)
 	go func() {
 		if err := server.Start(); err != nil {
 			log.Fatalf("Server error: %s\n", err)
