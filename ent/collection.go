@@ -28,8 +28,29 @@ type Collection struct {
 	// CreatedBy holds the value of the "created_by" field.
 	CreatedBy string `json:"created_by,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
-	CreatedAt    time.Time `json:"created_at,omitempty"`
+	CreatedAt time.Time `json:"created_at,omitempty"`
+	// Edges holds the relations/edges for other nodes in the graph.
+	// The values are being populated by the CollectionQuery when eager-loading is set.
+	Edges        CollectionEdges `json:"edges"`
 	selectValues sql.SelectValues
+}
+
+// CollectionEdges holds the relations/edges for other nodes in the graph.
+type CollectionEdges struct {
+	// Links holds the value of the links edge.
+	Links []*Link `json:"links,omitempty"`
+	// loadedTypes holds the information for reporting if a
+	// type was loaded (or requested) in eager-loading or not.
+	loadedTypes [1]bool
+}
+
+// LinksOrErr returns the Links value or an error if the edge
+// was not loaded in eager-loading.
+func (e CollectionEdges) LinksOrErr() ([]*Link, error) {
+	if e.loadedTypes[0] {
+		return e.Links, nil
+	}
+	return nil, &NotLoadedError{edge: "links"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -113,6 +134,11 @@ func (c *Collection) assignValues(columns []string, values []any) error {
 // This includes values selected through modifiers, order, etc.
 func (c *Collection) Value(name string) (ent.Value, error) {
 	return c.selectValues.Get(name)
+}
+
+// QueryLinks queries the "links" edge of the Collection entity.
+func (c *Collection) QueryLinks() *LinkQuery {
+	return NewCollectionClient(c.config).QueryLinks(c)
 }
 
 // Update returns a builder for updating this Collection.

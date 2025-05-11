@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"entgo.io/ent"
+	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 )
 
@@ -25,5 +26,7 @@ func (Link) Fields() []ent.Field {
 
 // Edges of the Link.
 func (Link) Edges() []ent.Edge {
-	return nil
+	return []ent.Edge{
+		edge.From("collection", Collection.Type).Ref("links").Unique(),
+	}
 }

@@ -9,6 +9,7 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
+	"text.io/ent/collection"
 	"text.io/ent/link"
 )
 
@@ -26,8 +27,32 @@ type Link struct {
 	// CreatedBy holds the value of the "created_by" field.
 	CreatedBy string `json:"created_by,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
-	CreatedAt    time.Time `json:"created_at,omitempty"`
-	selectValues sql.SelectValues
+	CreatedAt time.Time `json:"created_at,omitempty"`
+	// Edges holds the relations/edges for other nodes in the graph.
+	// The values are being populated by the LinkQuery when eager-loading is set.
+	Edges            LinkEdges `json:"edges"`
+	collection_links *int
+	selectValues     sql.SelectValues
+}
+
+// LinkEdges holds the relations/edges for other nodes in the graph.
+type LinkEdges struct {
+	// Collection holds the value of the collection edge.
+	Collection *Collection `json:"collection,omitempty"`
+	// loadedTypes holds the information for reporting if a
+	// type was loaded (or requested) in eager-loading or not.
+	loadedTypes [1]bool
+}
+
+// CollectionOrErr returns the Collection value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e LinkEdges) CollectionOrErr() (*Collection, error) {
+	if e.Collection != nil {
+		return e.Collection, nil
+	} else if e.loadedTypes[0] {
+		return nil, &NotFoundError{label: collection.Label}
+	}
+	return nil, &NotLoadedError{edge: "collection"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -41,6 +66,8 @@ func (*Link) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullString)
 		case link.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
+		case link.ForeignKeys[0]: // collection_links
+			values[i] = new(sql.NullInt64)
 		default:
 			values[i] = new(sql.UnknownType)
 		}
@@ -92,6 +119,13 @@ func (l *Link) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				l.CreatedAt = value.Time
 			}
+		case link.ForeignKeys[0]:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for edge-field collection_links", value)
+			} else if value.Valid {
+				l.collection_links = new(int)
+				*l.collection_links = int(value.Int64)
+			}
 		default:
 			l.selectValues.Set(columns[i], values[i])
 		}
@@ -103,6 +137,11 @@ func (l *Link) assignValues(columns []string, values []any) error {
 // This includes values selected through modifiers, order, etc.
 func (l *Link) Value(name string) (ent.Value, error) {
 	return l.selectValues.Get(name)
+}
+
+// QueryCollection queries the "collection" edge of the Link entity.
+func (l *Link) QueryCollection() *CollectionQuery {
+	return NewLinkClient(l.config).QueryCollection(l)
 }
 
 // Update returns a builder for updating this Link.

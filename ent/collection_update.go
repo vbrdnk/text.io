@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"text.io/ent/collection"
+	"text.io/ent/link"
 	"text.io/ent/predicate"
 )
 
@@ -110,9 +111,45 @@ func (cu *CollectionUpdate) SetNillableCreatedAt(t *time.Time) *CollectionUpdate
 	return cu
 }
 
+// AddLinkIDs adds the "links" edge to the Link entity by IDs.
+func (cu *CollectionUpdate) AddLinkIDs(ids ...int) *CollectionUpdate {
+	cu.mutation.AddLinkIDs(ids...)
+	return cu
+}
+
+// AddLinks adds the "links" edges to the Link entity.
+func (cu *CollectionUpdate) AddLinks(l ...*Link) *CollectionUpdate {
+	ids := make([]int, len(l))
+	for i := range l {
+		ids[i] = l[i].ID
+	}
+	return cu.AddLinkIDs(ids...)
+}
+
 // Mutation returns the CollectionMutation object of the builder.
 func (cu *CollectionUpdate) Mutation() *CollectionMutation {
 	return cu.mutation
+}
+
+// ClearLinks clears all "links" edges to the Link entity.
+func (cu *CollectionUpdate) ClearLinks() *CollectionUpdate {
+	cu.mutation.ClearLinks()
+	return cu
+}
+
+// RemoveLinkIDs removes the "links" edge to Link entities by IDs.
+func (cu *CollectionUpdate) RemoveLinkIDs(ids ...int) *CollectionUpdate {
+	cu.mutation.RemoveLinkIDs(ids...)
+	return cu
+}
+
+// RemoveLinks removes "links" edges to Link entities.
+func (cu *CollectionUpdate) RemoveLinks(l ...*Link) *CollectionUpdate {
+	ids := make([]int, len(l))
+	for i := range l {
+		ids[i] = l[i].ID
+	}
+	return cu.RemoveLinkIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -184,6 +221,51 @@ func (cu *CollectionUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if value, ok := cu.mutation.CreatedAt(); ok {
 		_spec.SetField(collection.FieldCreatedAt, field.TypeTime, value)
+	}
+	if cu.mutation.LinksCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   collection.LinksTable,
+			Columns: []string{collection.LinksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(link.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := cu.mutation.RemovedLinksIDs(); len(nodes) > 0 && !cu.mutation.LinksCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   collection.LinksTable,
+			Columns: []string{collection.LinksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(link.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := cu.mutation.LinksIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   collection.LinksTable,
+			Columns: []string{collection.LinksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(link.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if n, err = sqlgraph.UpdateNodes(ctx, cu.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
@@ -287,9 +369,45 @@ func (cuo *CollectionUpdateOne) SetNillableCreatedAt(t *time.Time) *CollectionUp
 	return cuo
 }
 
+// AddLinkIDs adds the "links" edge to the Link entity by IDs.
+func (cuo *CollectionUpdateOne) AddLinkIDs(ids ...int) *CollectionUpdateOne {
+	cuo.mutation.AddLinkIDs(ids...)
+	return cuo
+}
+
+// AddLinks adds the "links" edges to the Link entity.
+func (cuo *CollectionUpdateOne) AddLinks(l ...*Link) *CollectionUpdateOne {
+	ids := make([]int, len(l))
+	for i := range l {
+		ids[i] = l[i].ID
+	}
+	return cuo.AddLinkIDs(ids...)
+}
+
 // Mutation returns the CollectionMutation object of the builder.
 func (cuo *CollectionUpdateOne) Mutation() *CollectionMutation {
 	return cuo.mutation
+}
+
+// ClearLinks clears all "links" edges to the Link entity.
+func (cuo *CollectionUpdateOne) ClearLinks() *CollectionUpdateOne {
+	cuo.mutation.ClearLinks()
+	return cuo
+}
+
+// RemoveLinkIDs removes the "links" edge to Link entities by IDs.
+func (cuo *CollectionUpdateOne) RemoveLinkIDs(ids ...int) *CollectionUpdateOne {
+	cuo.mutation.RemoveLinkIDs(ids...)
+	return cuo
+}
+
+// RemoveLinks removes "links" edges to Link entities.
+func (cuo *CollectionUpdateOne) RemoveLinks(l ...*Link) *CollectionUpdateOne {
+	ids := make([]int, len(l))
+	for i := range l {
+		ids[i] = l[i].ID
+	}
+	return cuo.RemoveLinkIDs(ids...)
 }
 
 // Where appends a list predicates to the CollectionUpdate builder.
@@ -391,6 +509,51 @@ func (cuo *CollectionUpdateOne) sqlSave(ctx context.Context) (_node *Collection,
 	}
 	if value, ok := cuo.mutation.CreatedAt(); ok {
 		_spec.SetField(collection.FieldCreatedAt, field.TypeTime, value)
+	}
+	if cuo.mutation.LinksCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   collection.LinksTable,
+			Columns: []string{collection.LinksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(link.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := cuo.mutation.RemovedLinksIDs(); len(nodes) > 0 && !cuo.mutation.LinksCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   collection.LinksTable,
+			Columns: []string{collection.LinksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(link.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := cuo.mutation.LinksIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   collection.LinksTable,
+			Columns: []string{collection.LinksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(link.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	_node = &Collection{config: cuo.config}
 	_spec.Assign = _node.assignValues

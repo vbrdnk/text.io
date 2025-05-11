@@ -4,6 +4,7 @@ package ent
 
 import (
 	"context"
+	"database/sql/driver"
 	"fmt"
 	"math"
 
@@ -12,6 +13,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"text.io/ent/collection"
+	"text.io/ent/link"
 	"text.io/ent/predicate"
 )
 
@@ -22,6 +24,7 @@ type CollectionQuery struct {
 	order      []collection.OrderOption
 	inters     []Interceptor
 	predicates []predicate.Collection
+	withLinks  *LinkQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -56,6 +59,28 @@ func (cq *CollectionQuery) Unique(unique bool) *CollectionQuery {
 func (cq *CollectionQuery) Order(o ...collection.OrderOption) *CollectionQuery {
 	cq.order = append(cq.order, o...)
 	return cq
+}
+
+// QueryLinks chains the current query on the "links" edge.
+func (cq *CollectionQuery) QueryLinks() *LinkQuery {
+	query := (&LinkClient{config: cq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := cq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := cq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(collection.Table, collection.FieldID, selector),
+			sqlgraph.To(link.Table, link.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, collection.LinksTable, collection.LinksColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(cq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
 }
 
 // First returns the first Collection entity from the query.
@@ -250,10 +275,22 @@ func (cq *CollectionQuery) Clone() *CollectionQuery {
 		order:      append([]collection.OrderOption{}, cq.order...),
 		inters:     append([]Interceptor{}, cq.inters...),
 		predicates: append([]predicate.Collection{}, cq.predicates...),
+		withLinks:  cq.withLinks.Clone(),
 		// clone intermediate query.
 		sql:  cq.sql.Clone(),
 		path: cq.path,
 	}
+}
+
+// WithLinks tells the query-builder to eager-load the nodes that are connected to
+// the "links" edge. The optional arguments are used to configure the query builder of the edge.
+func (cq *CollectionQuery) WithLinks(opts ...func(*LinkQuery)) *CollectionQuery {
+	query := (&LinkClient{config: cq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	cq.withLinks = query
+	return cq
 }
 
 // GroupBy is used to group vertices by one or more fields/columns.
@@ -332,8 +369,11 @@ func (cq *CollectionQuery) prepareQuery(ctx context.Context) error {
 
 func (cq *CollectionQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Collection, error) {
 	var (
-		nodes = []*Collection{}
-		_spec = cq.querySpec()
+		nodes       = []*Collection{}
+		_spec       = cq.querySpec()
+		loadedTypes = [1]bool{
+			cq.withLinks != nil,
+		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
 		return (*Collection).scanValues(nil, columns)
@@ -341,6 +381,7 @@ func (cq *CollectionQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*C
 	_spec.Assign = func(columns []string, values []any) error {
 		node := &Collection{config: cq.config}
 		nodes = append(nodes, node)
+		node.Edges.loadedTypes = loadedTypes
 		return node.assignValues(columns, values)
 	}
 	for i := range hooks {
@@ -352,7 +393,46 @@ func (cq *CollectionQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*C
 	if len(nodes) == 0 {
 		return nodes, nil
 	}
+	if query := cq.withLinks; query != nil {
+		if err := cq.loadLinks(ctx, query, nodes,
+			func(n *Collection) { n.Edges.Links = []*Link{} },
+			func(n *Collection, e *Link) { n.Edges.Links = append(n.Edges.Links, e) }); err != nil {
+			return nil, err
+		}
+	}
 	return nodes, nil
+}
+
+func (cq *CollectionQuery) loadLinks(ctx context.Context, query *LinkQuery, nodes []*Collection, init func(*Collection), assign func(*Collection, *Link)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Collection)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	query.withFKs = true
+	query.Where(predicate.Link(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(collection.LinksColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.collection_links
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "collection_links" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "collection_links" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
 }
 
 func (cq *CollectionQuery) sqlCount(ctx context.Context) (int, error) {

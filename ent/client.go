@@ -14,6 +14,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
 	"text.io/ent/collection"
 	"text.io/ent/link"
 )
@@ -314,6 +315,22 @@ func (c *CollectionClient) GetX(ctx context.Context, id int) *Collection {
 	return obj
 }
 
+// QueryLinks queries the links edge of a Collection.
+func (c *CollectionClient) QueryLinks(co *Collection) *LinkQuery {
+	query := (&LinkClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := co.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(collection.Table, collection.FieldID, id),
+			sqlgraph.To(link.Table, link.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, collection.LinksTable, collection.LinksColumn),
+		)
+		fromV = sqlgraph.Neighbors(co.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *CollectionClient) Hooks() []Hook {
 	return c.hooks.Collection
@@ -445,6 +462,22 @@ func (c *LinkClient) GetX(ctx context.Context, id int) *Link {
 		panic(err)
 	}
 	return obj
+}
+
+// QueryCollection queries the collection edge of a Link.
+func (c *LinkClient) QueryCollection(l *Link) *CollectionQuery {
+	query := (&CollectionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := l.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(link.Table, link.FieldID, id),
+			sqlgraph.To(collection.Table, collection.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, link.CollectionTable, link.CollectionColumn),
+		)
+		fromV = sqlgraph.Neighbors(l.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
 }
 
 // Hooks returns the client hooks.

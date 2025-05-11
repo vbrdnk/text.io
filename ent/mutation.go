@@ -42,6 +42,9 @@ type CollectionMutation struct {
 	created_by    *string
 	created_at    *time.Time
 	clearedFields map[string]struct{}
+	links         map[int]struct{}
+	removedlinks  map[int]struct{}
+	clearedlinks  bool
 	done          bool
 	oldValue      func(context.Context) (*Collection, error)
 	predicates    []predicate.Collection
@@ -387,6 +390,60 @@ func (m *CollectionMutation) ResetCreatedAt() {
 	m.created_at = nil
 }
 
+// AddLinkIDs adds the "links" edge to the Link entity by ids.
+func (m *CollectionMutation) AddLinkIDs(ids ...int) {
+	if m.links == nil {
+		m.links = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.links[ids[i]] = struct{}{}
+	}
+}
+
+// ClearLinks clears the "links" edge to the Link entity.
+func (m *CollectionMutation) ClearLinks() {
+	m.clearedlinks = true
+}
+
+// LinksCleared reports if the "links" edge to the Link entity was cleared.
+func (m *CollectionMutation) LinksCleared() bool {
+	return m.clearedlinks
+}
+
+// RemoveLinkIDs removes the "links" edge to the Link entity by IDs.
+func (m *CollectionMutation) RemoveLinkIDs(ids ...int) {
+	if m.removedlinks == nil {
+		m.removedlinks = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.links, ids[i])
+		m.removedlinks[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedLinks returns the removed IDs of the "links" edge to the Link entity.
+func (m *CollectionMutation) RemovedLinksIDs() (ids []int) {
+	for id := range m.removedlinks {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// LinksIDs returns the "links" edge IDs in the mutation.
+func (m *CollectionMutation) LinksIDs() (ids []int) {
+	for id := range m.links {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetLinks resets all changes to the "links" edge.
+func (m *CollectionMutation) ResetLinks() {
+	m.links = nil
+	m.clearedlinks = false
+	m.removedlinks = nil
+}
+
 // Where appends a list predicates to the CollectionMutation builder.
 func (m *CollectionMutation) Where(ps ...predicate.Collection) {
 	m.predicates = append(m.predicates, ps...)
@@ -620,67 +677,105 @@ func (m *CollectionMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *CollectionMutation) AddedEdges() []string {
-	edges := make([]string, 0, 0)
+	edges := make([]string, 0, 1)
+	if m.links != nil {
+		edges = append(edges, collection.EdgeLinks)
+	}
 	return edges
 }
 
 // AddedIDs returns all IDs (to other nodes) that were added for the given edge
 // name in this mutation.
 func (m *CollectionMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case collection.EdgeLinks:
+		ids := make([]ent.Value, 0, len(m.links))
+		for id := range m.links {
+			ids = append(ids, id)
+		}
+		return ids
+	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *CollectionMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 0)
+	edges := make([]string, 0, 1)
+	if m.removedlinks != nil {
+		edges = append(edges, collection.EdgeLinks)
+	}
 	return edges
 }
 
 // RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
 // the given name in this mutation.
 func (m *CollectionMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case collection.EdgeLinks:
+		ids := make([]ent.Value, 0, len(m.removedlinks))
+		for id := range m.removedlinks {
+			ids = append(ids, id)
+		}
+		return ids
+	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *CollectionMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 0)
+	edges := make([]string, 0, 1)
+	if m.clearedlinks {
+		edges = append(edges, collection.EdgeLinks)
+	}
 	return edges
 }
 
 // EdgeCleared returns a boolean which indicates if the edge with the given name
 // was cleared in this mutation.
 func (m *CollectionMutation) EdgeCleared(name string) bool {
+	switch name {
+	case collection.EdgeLinks:
+		return m.clearedlinks
+	}
 	return false
 }
 
 // ClearEdge clears the value of the edge with the given name. It returns an error
 // if that edge is not defined in the schema.
 func (m *CollectionMutation) ClearEdge(name string) error {
+	switch name {
+	}
 	return fmt.Errorf("unknown Collection unique edge %s", name)
 }
 
 // ResetEdge resets all changes to the edge with the given name in this mutation.
 // It returns an error if the edge is not defined in the schema.
 func (m *CollectionMutation) ResetEdge(name string) error {
+	switch name {
+	case collection.EdgeLinks:
+		m.ResetLinks()
+		return nil
+	}
 	return fmt.Errorf("unknown Collection edge %s", name)
 }
 
 // LinkMutation represents an operation that mutates the Link nodes in the graph.
 type LinkMutation struct {
 	config
-	op            Op
-	typ           string
-	id            *int
-	fingerprint   *string
-	label         *string
-	url           *string
-	created_by    *string
-	created_at    *time.Time
-	clearedFields map[string]struct{}
-	done          bool
-	oldValue      func(context.Context) (*Link, error)
-	predicates    []predicate.Link
+	op                Op
+	typ               string
+	id                *int
+	fingerprint       *string
+	label             *string
+	url               *string
+	created_by        *string
+	created_at        *time.Time
+	clearedFields     map[string]struct{}
+	collection        *int
+	clearedcollection bool
+	done              bool
+	oldValue          func(context.Context) (*Link, error)
+	predicates        []predicate.Link
 }
 
 var _ ent.Mutation = (*LinkMutation)(nil)
@@ -987,6 +1082,45 @@ func (m *LinkMutation) ResetCreatedAt() {
 	m.created_at = nil
 }
 
+// SetCollectionID sets the "collection" edge to the Collection entity by id.
+func (m *LinkMutation) SetCollectionID(id int) {
+	m.collection = &id
+}
+
+// ClearCollection clears the "collection" edge to the Collection entity.
+func (m *LinkMutation) ClearCollection() {
+	m.clearedcollection = true
+}
+
+// CollectionCleared reports if the "collection" edge to the Collection entity was cleared.
+func (m *LinkMutation) CollectionCleared() bool {
+	return m.clearedcollection
+}
+
+// CollectionID returns the "collection" edge ID in the mutation.
+func (m *LinkMutation) CollectionID() (id int, exists bool) {
+	if m.collection != nil {
+		return *m.collection, true
+	}
+	return
+}
+
+// CollectionIDs returns the "collection" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// CollectionID instead. It exists only for internal usage by the builders.
+func (m *LinkMutation) CollectionIDs() (ids []int) {
+	if id := m.collection; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetCollection resets all changes to the "collection" edge.
+func (m *LinkMutation) ResetCollection() {
+	m.collection = nil
+	m.clearedcollection = false
+}
+
 // Where appends a list predicates to the LinkMutation builder.
 func (m *LinkMutation) Where(ps ...predicate.Link) {
 	m.predicates = append(m.predicates, ps...)
@@ -1203,19 +1337,28 @@ func (m *LinkMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *LinkMutation) AddedEdges() []string {
-	edges := make([]string, 0, 0)
+	edges := make([]string, 0, 1)
+	if m.collection != nil {
+		edges = append(edges, link.EdgeCollection)
+	}
 	return edges
 }
 
 // AddedIDs returns all IDs (to other nodes) that were added for the given edge
 // name in this mutation.
 func (m *LinkMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case link.EdgeCollection:
+		if id := m.collection; id != nil {
+			return []ent.Value{*id}
+		}
+	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *LinkMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 0)
+	edges := make([]string, 0, 1)
 	return edges
 }
 
@@ -1227,24 +1370,41 @@ func (m *LinkMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *LinkMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 0)
+	edges := make([]string, 0, 1)
+	if m.clearedcollection {
+		edges = append(edges, link.EdgeCollection)
+	}
 	return edges
 }
 
 // EdgeCleared returns a boolean which indicates if the edge with the given name
 // was cleared in this mutation.
 func (m *LinkMutation) EdgeCleared(name string) bool {
+	switch name {
+	case link.EdgeCollection:
+		return m.clearedcollection
+	}
 	return false
 }
 
 // ClearEdge clears the value of the edge with the given name. It returns an error
 // if that edge is not defined in the schema.
 func (m *LinkMutation) ClearEdge(name string) error {
+	switch name {
+	case link.EdgeCollection:
+		m.ClearCollection()
+		return nil
+	}
 	return fmt.Errorf("unknown Link unique edge %s", name)
 }
 
 // ResetEdge resets all changes to the edge with the given name in this mutation.
 // It returns an error if the edge is not defined in the schema.
 func (m *LinkMutation) ResetEdge(name string) error {
+	switch name {
+	case link.EdgeCollection:
+		m.ResetCollection()
+		return nil
+	}
 	return fmt.Errorf("unknown Link edge %s", name)
 }

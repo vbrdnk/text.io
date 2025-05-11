@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"text.io/ent/collection"
 	"text.io/ent/link"
 	"text.io/ent/predicate"
 )
@@ -18,10 +19,12 @@ import (
 // LinkQuery is the builder for querying Link entities.
 type LinkQuery struct {
 	config
-	ctx        *QueryContext
-	order      []link.OrderOption
-	inters     []Interceptor
-	predicates []predicate.Link
+	ctx            *QueryContext
+	order          []link.OrderOption
+	inters         []Interceptor
+	predicates     []predicate.Link
+	withCollection *CollectionQuery
+	withFKs        bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -56,6 +59,28 @@ func (lq *LinkQuery) Unique(unique bool) *LinkQuery {
 func (lq *LinkQuery) Order(o ...link.OrderOption) *LinkQuery {
 	lq.order = append(lq.order, o...)
 	return lq
+}
+
+// QueryCollection chains the current query on the "collection" edge.
+func (lq *LinkQuery) QueryCollection() *CollectionQuery {
+	query := (&CollectionClient{config: lq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := lq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := lq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(link.Table, link.FieldID, selector),
+			sqlgraph.To(collection.Table, collection.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, link.CollectionTable, link.CollectionColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(lq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
 }
 
 // First returns the first Link entity from the query.
@@ -245,15 +270,27 @@ func (lq *LinkQuery) Clone() *LinkQuery {
 		return nil
 	}
 	return &LinkQuery{
-		config:     lq.config,
-		ctx:        lq.ctx.Clone(),
-		order:      append([]link.OrderOption{}, lq.order...),
-		inters:     append([]Interceptor{}, lq.inters...),
-		predicates: append([]predicate.Link{}, lq.predicates...),
+		config:         lq.config,
+		ctx:            lq.ctx.Clone(),
+		order:          append([]link.OrderOption{}, lq.order...),
+		inters:         append([]Interceptor{}, lq.inters...),
+		predicates:     append([]predicate.Link{}, lq.predicates...),
+		withCollection: lq.withCollection.Clone(),
 		// clone intermediate query.
 		sql:  lq.sql.Clone(),
 		path: lq.path,
 	}
+}
+
+// WithCollection tells the query-builder to eager-load the nodes that are connected to
+// the "collection" edge. The optional arguments are used to configure the query builder of the edge.
+func (lq *LinkQuery) WithCollection(opts ...func(*CollectionQuery)) *LinkQuery {
+	query := (&CollectionClient{config: lq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	lq.withCollection = query
+	return lq
 }
 
 // GroupBy is used to group vertices by one or more fields/columns.
@@ -332,15 +369,26 @@ func (lq *LinkQuery) prepareQuery(ctx context.Context) error {
 
 func (lq *LinkQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Link, error) {
 	var (
-		nodes = []*Link{}
-		_spec = lq.querySpec()
+		nodes       = []*Link{}
+		withFKs     = lq.withFKs
+		_spec       = lq.querySpec()
+		loadedTypes = [1]bool{
+			lq.withCollection != nil,
+		}
 	)
+	if lq.withCollection != nil {
+		withFKs = true
+	}
+	if withFKs {
+		_spec.Node.Columns = append(_spec.Node.Columns, link.ForeignKeys...)
+	}
 	_spec.ScanValues = func(columns []string) ([]any, error) {
 		return (*Link).scanValues(nil, columns)
 	}
 	_spec.Assign = func(columns []string, values []any) error {
 		node := &Link{config: lq.config}
 		nodes = append(nodes, node)
+		node.Edges.loadedTypes = loadedTypes
 		return node.assignValues(columns, values)
 	}
 	for i := range hooks {
@@ -352,7 +400,46 @@ func (lq *LinkQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Link, e
 	if len(nodes) == 0 {
 		return nodes, nil
 	}
+	if query := lq.withCollection; query != nil {
+		if err := lq.loadCollection(ctx, query, nodes, nil,
+			func(n *Link, e *Collection) { n.Edges.Collection = e }); err != nil {
+			return nil, err
+		}
+	}
 	return nodes, nil
+}
+
+func (lq *LinkQuery) loadCollection(ctx context.Context, query *CollectionQuery, nodes []*Link, init func(*Link), assign func(*Link, *Collection)) error {
+	ids := make([]int, 0, len(nodes))
+	nodeids := make(map[int][]*Link)
+	for i := range nodes {
+		if nodes[i].collection_links == nil {
+			continue
+		}
+		fk := *nodes[i].collection_links
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(collection.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "collection_links" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
 }
 
 func (lq *LinkQuery) sqlCount(ctx context.Context) (int, error) {

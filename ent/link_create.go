@@ -10,6 +10,7 @@ import (
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"text.io/ent/collection"
 	"text.io/ent/link"
 )
 
@@ -72,6 +73,25 @@ func (lc *LinkCreate) SetNillableCreatedAt(t *time.Time) *LinkCreate {
 		lc.SetCreatedAt(*t)
 	}
 	return lc
+}
+
+// SetCollectionID sets the "collection" edge to the Collection entity by ID.
+func (lc *LinkCreate) SetCollectionID(id int) *LinkCreate {
+	lc.mutation.SetCollectionID(id)
+	return lc
+}
+
+// SetNillableCollectionID sets the "collection" edge to the Collection entity by ID if the given value is not nil.
+func (lc *LinkCreate) SetNillableCollectionID(id *int) *LinkCreate {
+	if id != nil {
+		lc = lc.SetCollectionID(*id)
+	}
+	return lc
+}
+
+// SetCollection sets the "collection" edge to the Collection entity.
+func (lc *LinkCreate) SetCollection(c *Collection) *LinkCreate {
+	return lc.SetCollectionID(c.ID)
 }
 
 // Mutation returns the LinkMutation object of the builder.
@@ -181,6 +201,23 @@ func (lc *LinkCreate) createSpec() (*Link, *sqlgraph.CreateSpec) {
 	if value, ok := lc.mutation.CreatedAt(); ok {
 		_spec.SetField(link.FieldCreatedAt, field.TypeTime, value)
 		_node.CreatedAt = value
+	}
+	if nodes := lc.mutation.CollectionIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   link.CollectionTable,
+			Columns: []string{link.CollectionColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(collection.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.collection_links = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec
 }

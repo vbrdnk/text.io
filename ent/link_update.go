@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"text.io/ent/collection"
 	"text.io/ent/link"
 	"text.io/ent/predicate"
 )
@@ -96,9 +97,34 @@ func (lu *LinkUpdate) SetNillableCreatedAt(t *time.Time) *LinkUpdate {
 	return lu
 }
 
+// SetCollectionID sets the "collection" edge to the Collection entity by ID.
+func (lu *LinkUpdate) SetCollectionID(id int) *LinkUpdate {
+	lu.mutation.SetCollectionID(id)
+	return lu
+}
+
+// SetNillableCollectionID sets the "collection" edge to the Collection entity by ID if the given value is not nil.
+func (lu *LinkUpdate) SetNillableCollectionID(id *int) *LinkUpdate {
+	if id != nil {
+		lu = lu.SetCollectionID(*id)
+	}
+	return lu
+}
+
+// SetCollection sets the "collection" edge to the Collection entity.
+func (lu *LinkUpdate) SetCollection(c *Collection) *LinkUpdate {
+	return lu.SetCollectionID(c.ID)
+}
+
 // Mutation returns the LinkMutation object of the builder.
 func (lu *LinkUpdate) Mutation() *LinkMutation {
 	return lu.mutation
+}
+
+// ClearCollection clears the "collection" edge to the Collection entity.
+func (lu *LinkUpdate) ClearCollection() *LinkUpdate {
+	lu.mutation.ClearCollection()
+	return lu
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -167,6 +193,35 @@ func (lu *LinkUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if value, ok := lu.mutation.CreatedAt(); ok {
 		_spec.SetField(link.FieldCreatedAt, field.TypeTime, value)
+	}
+	if lu.mutation.CollectionCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   link.CollectionTable,
+			Columns: []string{link.CollectionColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(collection.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := lu.mutation.CollectionIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   link.CollectionTable,
+			Columns: []string{link.CollectionColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(collection.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if n, err = sqlgraph.UpdateNodes(ctx, lu.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
@@ -256,9 +311,34 @@ func (luo *LinkUpdateOne) SetNillableCreatedAt(t *time.Time) *LinkUpdateOne {
 	return luo
 }
 
+// SetCollectionID sets the "collection" edge to the Collection entity by ID.
+func (luo *LinkUpdateOne) SetCollectionID(id int) *LinkUpdateOne {
+	luo.mutation.SetCollectionID(id)
+	return luo
+}
+
+// SetNillableCollectionID sets the "collection" edge to the Collection entity by ID if the given value is not nil.
+func (luo *LinkUpdateOne) SetNillableCollectionID(id *int) *LinkUpdateOne {
+	if id != nil {
+		luo = luo.SetCollectionID(*id)
+	}
+	return luo
+}
+
+// SetCollection sets the "collection" edge to the Collection entity.
+func (luo *LinkUpdateOne) SetCollection(c *Collection) *LinkUpdateOne {
+	return luo.SetCollectionID(c.ID)
+}
+
 // Mutation returns the LinkMutation object of the builder.
 func (luo *LinkUpdateOne) Mutation() *LinkMutation {
 	return luo.mutation
+}
+
+// ClearCollection clears the "collection" edge to the Collection entity.
+func (luo *LinkUpdateOne) ClearCollection() *LinkUpdateOne {
+	luo.mutation.ClearCollection()
+	return luo
 }
 
 // Where appends a list predicates to the LinkUpdate builder.
@@ -357,6 +437,35 @@ func (luo *LinkUpdateOne) sqlSave(ctx context.Context) (_node *Link, err error) 
 	}
 	if value, ok := luo.mutation.CreatedAt(); ok {
 		_spec.SetField(link.FieldCreatedAt, field.TypeTime, value)
+	}
+	if luo.mutation.CollectionCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   link.CollectionTable,
+			Columns: []string{link.CollectionColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(collection.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := luo.mutation.CollectionIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   link.CollectionTable,
+			Columns: []string{link.CollectionColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(collection.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	_node = &Link{config: luo.config}
 	_spec.Assign = _node.assignValues

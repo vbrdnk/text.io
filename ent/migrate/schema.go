@@ -32,12 +32,21 @@ var (
 		{Name: "url", Type: field.TypeString},
 		{Name: "created_by", Type: field.TypeString, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
+		{Name: "collection_links", Type: field.TypeInt, Nullable: true},
 	}
 	// LinksTable holds the schema information for the "links" table.
 	LinksTable = &schema.Table{
 		Name:       "links",
 		Columns:    LinksColumns,
 		PrimaryKey: []*schema.Column{LinksColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "links_collections_links",
+				Columns:    []*schema.Column{LinksColumns[6]},
+				RefColumns: []*schema.Column{CollectionsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
 	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
@@ -47,4 +56,5 @@ var (
 )
 
 func init() {
+	LinksTable.ForeignKeys[0].RefTable = CollectionsTable
 }

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
 )
 
 const (
@@ -23,8 +24,17 @@ const (
 	FieldCreatedBy = "created_by"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
+	// EdgeCollection holds the string denoting the collection edge name in mutations.
+	EdgeCollection = "collection"
 	// Table holds the table name of the link in the database.
 	Table = "links"
+	// CollectionTable is the table that holds the collection relation/edge.
+	CollectionTable = "links"
+	// CollectionInverseTable is the table name for the Collection entity.
+	// It exists in this package in order to avoid circular dependency with the "collection" package.
+	CollectionInverseTable = "collections"
+	// CollectionColumn is the table column denoting the collection relation/edge.
+	CollectionColumn = "collection_links"
 )
 
 // Columns holds all SQL columns for link fields.
@@ -37,10 +47,21 @@ var Columns = []string{
 	FieldCreatedAt,
 }
 
+// ForeignKeys holds the SQL foreign-keys that are owned by the "links"
+// table and are not defined as standalone fields in the schema.
+var ForeignKeys = []string{
+	"collection_links",
+}
+
 // ValidColumn reports if the column name is valid (part of the table columns).
 func ValidColumn(column string) bool {
 	for i := range Columns {
 		if column == Columns[i] {
+			return true
+		}
+	}
+	for i := range ForeignKeys {
+		if column == ForeignKeys[i] {
 			return true
 		}
 	}
@@ -87,4 +108,18 @@ func ByCreatedBy(opts ...sql.OrderTermOption) OrderOption {
 // ByCreatedAt orders the results by the created_at field.
 func ByCreatedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCreatedAt, opts...).ToFunc()
+}
+
+// ByCollectionField orders the results by collection field.
+func ByCollectionField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newCollectionStep(), sql.OrderByField(field, opts...))
+	}
+}
+func newCollectionStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(CollectionInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, true, CollectionTable, CollectionColumn),
+	)
 }
