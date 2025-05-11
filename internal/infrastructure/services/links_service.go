@@ -1,10 +1,9 @@
 package services
 
 import (
-	"errors"
-	"fmt"
 	"net/url"
 
+	"text.io/ent"
 	"text.io/internal/api/application/repositories"
 	entity_errors "text.io/internal/entities/errors"
 	"text.io/internal/entities/models"
@@ -30,24 +29,18 @@ func (s *LinksService) CreateLink(link models.CreateLink) error {
 	}
 	shortUrl := pkg.GenerateURLFingerprint(link.Url)
 
-	existingLink, err := s.repo.GetLink(shortUrl)
-	fmt.Print(err)
-	// TODO: revisit this logic and handle errors properly when db is empty
-	if err != nil && existingLink.Fingerprint != "" {
+	exists, err := s.repo.CheckIfLinkExists(shortUrl)
+	if err != nil || exists {
 		return entity_errors.ErrLinkExists
 	}
 
 	return s.repo.CreateLink(shortUrl, link)
 }
 
-func (s *LinksService) GetLink(fingerprint string) (models.Link, error) {
-	if fingerprint == "" {
-		return models.Link{}, errors.New("link Fingerprint is required")
-	}
-
+func (s *LinksService) GetLink(fingerprint string) (*ent.Link, error) {
 	return s.repo.GetLink(fingerprint)
 }
 
-func (s *LinksService) ListLinks() ([]models.Link, error) {
+func (s *LinksService) ListLinks() ([]*ent.Link, error) {
 	return s.repo.ListLinks()
 }

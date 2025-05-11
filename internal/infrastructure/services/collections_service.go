@@ -1,8 +1,7 @@
 package services
 
 import (
-	"errors"
-
+	"text.io/ent"
 	"text.io/internal/api/application/repositories"
 	entity_errors "text.io/internal/entities/errors"
 	"text.io/internal/entities/models"
@@ -28,23 +27,18 @@ func (s *CollectionsService) CreateCollection(collection models.CreateCollection
 
 	shortUrl := pkg.GenerateURLFingerprint(collection.Title)
 
-	existingCollection, err := s.repo.GetCollection(shortUrl)
-	// TODO: revisit this logic and handle errors properly when db is empty
-	if err != nil && existingCollection.Fingerprint != "" {
+	exists, err := s.repo.CheckIfCollectionExists(shortUrl)
+	if err != nil || exists {
 		return entity_errors.ErrCollectionExists
 	}
 
 	return s.repo.CreateCollection(shortUrl, collection)
 }
 
-func (s *CollectionsService) GetCollection(fingerprint string) (models.Collection, error) {
-	if fingerprint == "" {
-		return models.Collection{}, errors.New("collection Fingerprint is required")
-	}
-
+func (s *CollectionsService) GetCollection(fingerprint string) (*ent.Collection, error) {
 	return s.repo.GetCollection(fingerprint)
 }
 
-func (s *CollectionsService) ListCollections() ([]models.Collection, error) {
+func (s *CollectionsService) ListCollections() ([]*ent.Collection, error) {
 	return s.repo.ListCollections()
 }

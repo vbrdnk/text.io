@@ -17,16 +17,17 @@ func Run() {
 	config := configs.LoadConfig()
 
 	// Initialize the database
-	if err := database.InitDB(config); err != nil {
+	err, client := database.InitDB(config)
+	if err != nil {
 		log.Fatalf("Failed to initialize the database: %v", err)
 	}
 
-	defer database.CloseDB()
+	defer client.Close()
 
-	linksRepo := repositories.NewPostgresLinkRepository(database.DB)
-	collectionsRepo := repositories.NewPostgresCollectionRepository(database.DB)
+	linksRepo := repositories.NewPostgresLinkRepository(client)
+	collectionsRepo := repositories.NewPostgresCollectionRepository(client)
 
-	server := api.NewServer(config, linksRepo, collectionsRepo)
+	server := api.NewServer(config, client, linksRepo, collectionsRepo)
 	go func() {
 		if err := server.Start(); err != nil {
 			log.Fatalf("Server error: %s\n", err)

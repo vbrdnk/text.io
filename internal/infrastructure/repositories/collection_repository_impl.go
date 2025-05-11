@@ -1,52 +1,62 @@
 package repositories
 
 import (
-	"database/sql"
+	"context"
+	"fmt"
 
+	"text.io/ent"
+	"text.io/ent/collection"
 	"text.io/internal/entities/models"
 )
 
 type CollectionRepository struct {
-	db *sql.DB
+	client *ent.Client
 }
 
-func NewPostgresCollectionRepository(db *sql.DB) *CollectionRepository {
+func NewPostgresCollectionRepository(client *ent.Client) *CollectionRepository {
 	return &CollectionRepository{
-		db: db,
+		client: client,
 	}
 }
 
-func (r *CollectionRepository) GetCollection(fingerprint string) (models.Collection, error) {
-	var collection models.Collection
-	err := r.db.QueryRow("SELECT fingerprint FROM collections WHERE fingerprint = $1", fingerprint).
-		Scan(&collection.Fingerprint)
+func (r *CollectionRepository) CheckIfCollectionExists(fingerprint string) (bool, error) {
+	exists, err := r.client.Collection.Query().Where(collection.Fingerprint(fingerprint)).Exist(context.Background())
+	if err != nil {
+		return false, fmt.Errorf("failed checking if collection exists: %w", err)
+	}
 
-	return collection, err
+	return exists, nil
+}
+
+func (r *CollectionRepository) GetCollection(fingerprint string) (*ent.Collection, error) {
+	collection, err := r.client.Collection.
+		Query().
+		Where(collection.Fingerprint(fingerprint)).
+		Only(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("failed getting link: %w", err)
+	}
+	return collection, nil
 }
 
 func (r *CollectionRepository) CreateCollection(shortUrl string, collection models.CreateCollection) error {
-	_, err := r.db.Exec("INSERT INTO collections (fingerprint, title) VALUES ($1, $2)", shortUrl, collection.Title)
-	return err
+	_, err := r.client.Collection.
+		Create().
+		SetFingerprint(shortUrl).
+		SetTitle("test").
+		Save(context.Background())
+	if err != nil {
+		return fmt.Errorf("failed creating collection %w", err)
+	}
+	return nil
 }
 
-func (r *CollectionRepository) ListCollections() ([]models.Collection, error) {
-	rows, err := r.db.Query("SELECT fingerprint, title, created_at FROM collections")
+func (r *CollectionRepository) ListCollections() ([]*ent.Collection, error) {
+	collections, err := r.client.Collection.
+		Query().
+		All(context.Background())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed quering the collections: %w", err)
 	}
-
-	defer rows.Close()
-
-	// Parse rows into collections
-	var collections []models.Collection
-	for rows.Next() {
-		var collection models.Collection
-		if err := rows.Scan(&collection.Fingerprint, &collection.Title, &collection.CreatedAt); err != nil {
-			return nil, err
-		}
-
-		collections = append(collections, collection)
-	}
-
 	return collections, nil
 }
