@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -53,6 +54,7 @@ func (h *CollectionsHandler) CreateCollection(w http.ResponseWriter, r *http.Req
 
 	err := h.service.CreateCollection(collection)
 	if err != nil {
+		log.Printf("Error creating collection: %v", err)
 		switch err {
 		case entity_errors.ErrInvalidCollection:
 			http.Error(w, err.Error(), http.StatusBadRequest)

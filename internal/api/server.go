@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"text.io/configs"
+	"text.io/ent"
 	"text.io/internal/api/application/handlers"
 	"text.io/internal/api/application/repositories"
 	"text.io/internal/infrastructure/services"
@@ -18,7 +19,7 @@ type Server struct {
 	config configs.Config
 }
 
-func NewServer(config configs.Config, linksRepo repositories.LinkRepository, collectionsRepo repositories.CollectionsRepository) *Server {
+func NewServer(config configs.Config, client *ent.Client, linksRepo repositories.LinkRepository, collectionsRepo repositories.CollectionsRepository) *Server {
 	server := &Server{
 		router: chi.NewRouter(),
 		config: config,

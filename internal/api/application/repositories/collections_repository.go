@@ -1,9 +1,13 @@
 package repositories
 
-import "text.io/internal/entities/models"
+import (
+	"text.io/ent"
+	"text.io/internal/entities/models"
+)
 
 type CollectionsRepository interface {
-	GetCollection(fingerprint string) (models.Collection, error)
+	CheckIfCollectionExists(fingerprint string) (bool, error)
+	GetCollection(fingerprint string) (*ent.Collection, error)
 	CreateCollection(shortUrl string, collection models.CreateCollection) error
-	ListCollections() ([]models.Collection, error)
+	ListCollections() ([]*ent.Collection, error)
 }
