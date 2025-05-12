@@ -7,7 +7,7 @@ import (
 
 type CollectionsRepository interface {
 	CheckIfCollectionExists(fingerprint string) (bool, error)
-	GetCollection(fingerprint string) (*ent.Collection, error)
 	CreateCollection(shortUrl string, collection models.CreateCollection) error
+	GetCollection(fingerprint string) (*ent.Collection, error)
 	ListCollections() ([]*ent.Collection, error)
 }

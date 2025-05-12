@@ -7,7 +7,7 @@ import (
 
 type LinkRepository interface {
 	CheckIfLinkExists(fingerprint string) (bool, error)
-	GetLink(fingerprint string) (*ent.Link, error)
 	CreateLink(shortUrl string, link models.CreateLink) error
+	GetLink(fingerprint string) (*ent.Link, error)
 	ListLinks() ([]*ent.Link, error)
 }

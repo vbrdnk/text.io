@@ -19,16 +19,23 @@ type Server struct {
 	config configs.Config
 }
 
-func NewServer(config configs.Config, client *ent.Client, linksRepo repositories.LinkRepository, collectionsRepo repositories.CollectionsRepository) *Server {
+func NewServer(
+	config configs.Config,
+	client *ent.Client,
+	linksRepo repositories.LinkRepository,
+	collectionsRepo repositories.CollectionsRepository,
+) *Server {
 	server := &Server{
 		router: chi.NewRouter(),
 		config: config,
 	}
 
+	// Initialize all services
 	linksService := services.NewLinksService(linksRepo)
-	linksHandler := handlers.NewLinksHandler(linksService)
-
 	collectionsService := services.NewCollectionsService(collectionsRepo)
+
+	// Initialize all handlers
+	linksHandler := handlers.NewLinksHandler(linksService)
 	collectionsHandler := handlers.NewCollectionsHandler(collectionsService)
 
 	// Add built-in middleware
